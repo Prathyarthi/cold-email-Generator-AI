@@ -33,3 +33,26 @@ prompt_extract = PromptTemplate.from_template(
 chain_extract = prompt_extract | llm
 res = chain_extract.invoke(input={'page_data':page_data})
 print(res.content)
+
+from langchain_core.output_parsers import JsonOutputParser
+
+json_parser = JsonOutputParser()
+res = json_parser.parse(res.content)
+print(res)
+
+import pandas as pd
+
+df = pd.read_csv('portfolio.csv')
+print(df)
+
+
+import chromadb
+import uuid
+
+
+client = chromadb.PersistentClient('vectorstore')
+collection = client.get_or_create_collection(name='portfolio')
+
+if not collection.count():
+    for _,row in df.iterrows():
+        collection.add(documents=row['Techstack'],metadatas={'links':row['Links']},ids=[str(uuid.uuid4())])
