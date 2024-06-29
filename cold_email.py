@@ -32,23 +32,18 @@ prompt_extract = PromptTemplate.from_template(
 
 chain_extract = prompt_extract | llm
 res = chain_extract.invoke(input={'page_data':page_data})
-print(res.content)
 
 from langchain_core.output_parsers import JsonOutputParser
 
 json_parser = JsonOutputParser()
-res = json_parser.parse(res.content)
-print(res)
+json_res = json_parser.parse(res.content)
 
 import pandas as pd
 
 df = pd.read_csv('portfolio.csv')
-print(df)
-
 
 import chromadb
 import uuid
-
 
 client = chromadb.PersistentClient('vectorstore')
 collection = client.get_or_create_collection(name='portfolio')
@@ -56,3 +51,28 @@ collection = client.get_or_create_collection(name='portfolio')
 if not collection.count():
     for _,row in df.iterrows():
         collection.add(documents=row['Techstack'],metadatas={'links':row['Links']},ids=[str(uuid.uuid4())])
+
+links = collection.query(query_texts=['skills'],n_results=2).get('metadatas',[])
+
+job = json_res
+
+prompt_email = PromptTemplate.from_template(
+        """
+        ### JOB DESCRIPTION:
+        {job_description}
+        
+        ### INSTRUCTION:
+        You are Prathyarthi, a software engineer having all these skills(NextJS, ReactJS, NodeJS, AWS, Git & Github, Linux,
+        Express, Docker, MongoDB, Postgresql, MySQL, Redis, Tailwind CSS, Typescript, Langchain, Pinecone). You will be applying for a relevant role.
+        Also add the most relevant ones from the following links to showcase Prathyarthi's portfolio: {link_list}
+        Remember you are Prathyarthi, a software engineer. 
+        Do not provide a preamble.
+        ### EMAIL (NO PREAMBLE):
+        
+        """
+        )
+
+chain_email = prompt_email | llm
+res = chain_email.invoke({"job_description": str(job), "link_list": links})
+print(res.content)
+
